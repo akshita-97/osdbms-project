@@ -27,6 +27,7 @@ The platform leverages `psutil` for real-time CPU and RAM monitoring while simul
 
 ## 📁 System Architecture
 
+```text
 +-------------------------------------------------------------------+
 |                     ADMINISTRATOR (User Persona)                  |
 +-------------------------------------------------------------------+
@@ -54,7 +55,7 @@ The platform leverages `psutil` for real-time CPU and RAM monitoring while simul
         |   DATABASE LAYER      |
         |      (MySQL)          |
         +-----------------------+
-
+```
 
 ## 🚀 Getting Started
 ### Prerequisites
