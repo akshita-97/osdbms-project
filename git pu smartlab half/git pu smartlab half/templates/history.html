@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Maintenance History{% endblock %}
+{% block content %}
+  <h1 class="page-title">Maintenance History</h1>
+  <p class="page-subtitle">Completed maintenance records, optionally filtered by computer.</p>
+
+  <div class="panel">
+    <form class="inline" method="GET">
+      <select name="computer_id" onchange="this.form.submit()">
+        <option value="">-- All Computers --</option>
+        {% for c in computers %}
+        <option value="{{ c.computer_id }}" {{ 'selected' if computer_filter == c.computer_id }}>{{ c.computer_id }} ({{ c.lab_id }})</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="table-wrap">
+    <table>
+      <tr><th>Task</th><th>Computer</th><th>Technician</th><th>Priority</th><th>Service Time</th><th>Started</th><th>Completed</th><th>Resources Used</th><th>Remarks</th></tr>
+      {% for h in records %}
+      <tr>
+        <td>{{ h.task_id }}</td>
+        <td>{{ h.computer_id }}</td>
+        <td>{{ h.technician_name or '-' }}</td>
+        <td>{{ h.priority }}</td>
+        <td>{{ h.service_time }} min</td>
+        <td>{{ h.started_at }}</td>
+        <td>{{ h.completed_at }}</td>
+        <td>{{ h.resources_used or '-' }}</td>
+        <td>{{ h.remarks or '-' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="muted">No maintenance history yet.</td></tr>
+      {% endfor %}
+    </table>
+    </div>
+  </div>
+{% endblock %}

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Scheduling Queue{% endblock %}
+{% block content %}
+  <h1 class="page-title">Maintenance Queue &amp; Scheduling</h1>
+  <p class="page-subtitle">
+    OS scheduling algorithms are implemented here as an <strong>application-level simulation</strong>
+    for deciding maintenance-task order. This does not replace or modify the operating system's own scheduler.
+  </p>
+
+  <div class="panel">
+    <h2>Pending / Active Tasks</h2>
+    <div class="table-wrap">
+    <table>
+      <tr><th>Task</th><th>Computer</th><th>Arrival</th><th>Service</th><th>Priority</th><th>Status</th></tr>
+      {% for t in tasks %}
+      {% if t.status not in ['Completed', 'Cancelled'] %}
+      <tr>
+        <td>{{ t.task_id }}</td><td>{{ t.computer_id }}</td><td>{{ t.arrival_time }}</td>
+        <td>{{ t.service_time }} min</td><td>{{ t.priority }}</td>
+        <td><span class="badge" data-tone="{{ t.status|tone }}">{{ t.status }}</span></td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Run Scheduling Algorithm</h2>
+    <form class="inline" method="POST">
+      <div>
+        <label>Algorithm</label>
+        <select name="algorithm" id="algo-select" onchange="document.getElementById('quantum-field').style.display = this.value === 'Round Robin' ? 'block' : 'none';">
+          <option value="FCFS" {{ 'selected' if algorithm=='FCFS' }}>FCFS (First Come First Serve)</option>
+          <option value="SJF" {{ 'selected' if algorithm=='SJF' }}>SJF (Shortest Job First)</option>
+          <option value="Priority" {{ 'selected' if algorithm=='Priority' }}>Priority Scheduling</option>
+          <option value="Round Robin" {{ 'selected' if algorithm=='Round Robin' }}>Round Robin (optional, academic)</option>
+        </select>
+      </div>
+      <div id="quantum-field" style="display:{{ 'block' if algorithm=='Round Robin' else 'none' }};">
+        <label>Time Quantum (min)</label>
+        <input type="number" name="quantum" value="10" min="1">
+      </div>
+      <div><button type="submit">Run Scheduling</button></div>
+    </form>
+  </div>
+
+  {% if result %}
+  <div class="panel">
+    <h2>Results -- Algorithm Used: {{ result.algorithm }}</h2>
+
+    {% if result.message %}
+      <p class="muted">{{ result.message }}</p>
+    {% else %}
+      <h3>Gantt Chart</h3>
+      <div class="gantt">
+        {% for block in result.gantt %}
+        <div class="gantt-block" style="flex-grow:{{ block.end - block.start }}; background: hsl({{ (loop.index0 * 47) % 360 }},60%,45%);">
+          {{ block.task_id }}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="gantt-ruler">
+        {% for block in result.gantt %}
+        <div style="flex-grow:{{ block.end - block.start }};">{{ block.start }}</div>
+        {% endfor %}
+        <div style="flex-grow:0;">{{ result.gantt[-1].end }}</div>
+      </div>
+
+      <h3>Execution Order</h3>
+      <p>{{ result.order | join(' -> ') }}</p>
+
+      <h3>Scheduling Metrics</h3>
+      <div class="table-wrap">
+      <table>
+        <tr><th>Task</th><th>AT</th><th>Service</th><th>Priority</th><th>CT</th><th>TAT</th><th>WT</th><th>RT</th></tr>
+        {% for m in result.metrics %}
+        <tr>
+          <td>{{ m.task_id }}</td><td>{{ m.arrival_time }}</td><td>{{ m.service_time }}</td>
+          <td>{{ m.priority if m.priority is not none else '-' }}</td>
+          <td>{{ m.completion_time }}</td><td>{{ m.turnaround_time }}</td>
+          <td>{{ m.waiting_time }}</td><td>{{ m.response_time }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      </div>
+
+      <div class="metric-row">
+        <div class="metric-box"><div class="num">{{ result.averages.avg_waiting_time }}</div><div class="lbl">Avg Waiting Time</div></div>
+        <div class="metric-box"><div class="num">{{ result.averages.avg_turnaround_time }}</div><div class="lbl">Avg Turnaround Time</div></div>
+        <div class="metric-box"><div class="num">{{ result.averages.avg_response_time }}</div><div class="lbl">Avg Response Time</div></div>
+      </div>
+      {% if result.note %}<p class="muted">{{ result.note }}</p>{% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+  <h1 class="page-title">Dashboard</h1>
+  <p class="page-subtitle">Overview of labs, maintenance workload, and resource availability.</p>
+
+  <div class="card-grid">
+    <div class="stat-card"><div class="value">{{ stats.total_labs }}</div><div class="label">Total Labs</div></div>
+    <div class="stat-card"><div class="value">{{ stats.total_computers }}</div><div class="label">Total Computers</div></div>
+    <div class="stat-card"><div class="value">{{ stats.computers_under_maintenance }}</div><div class="label">Under Maintenance</div></div>
+    <div class="stat-card"><div class="value">{{ stats.pending_tasks }}</div><div class="label">Pending Maintenance Tasks</div></div>
+    <div class="stat-card"><div class="value">{{ stats.critical_faults }}</div><div class="label">Critical Faults</div></div>
+    <div class="stat-card"><div class="value">{{ stats.available_technicians }}</div><div class="label">Available Technicians</div></div>
+    <div class="stat-card"><div class="value">{{ stats.available_resources }}</div><div class="label">Available Resource Units</div></div>
+    <div class="stat-card"><div class="value">{{ stats.active_tasks }}</div><div class="label">Active Tasks</div></div>
+  </div>
+
+  <div class="two-col">
+    <div class="panel">
+      <h2>Recent Maintenance Requests</h2>
+      <div class="table-wrap">
+      <table>
+        <tr><th>ID</th><th>Computer</th><th>Severity</th><th>Status</th><th>Reported</th></tr>
+        {% for r in recent_requests %}
+        <tr>
+          <td>#{{ r.request_id }}</td>
+          <td>{{ r.computer_id }}</td>
+          <td><span class="badge" data-tone="{{ r.severity|tone }}">{{ r.severity }}</span></td>
+          <td><span class="badge" data-tone="{{ r.status|tone }}">{{ r.status }}</span></td>
+          <td>{{ r.reported_at }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="muted">No maintenance requests yet.</td></tr>
+        {% endfor %}
+      </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Pending Maintenance Tasks</h2>
+      <div class="table-wrap">
+      <table>
+        <tr><th>Task</th><th>Computer</th><th>Priority</th><th>Status</th></tr>
+        {% for t in pending_tasks %}
+        <tr>
+          <td>{{ t.task_id }}</td>
+          <td>{{ t.computer_id }}</td>
+          <td>{{ t.priority }}</td>
+          <td><span class="badge" data-tone="{{ t.status|tone }}">{{ t.status }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="muted">No pending tasks.</td></tr>
+        {% endfor %}
+      </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="panel">
+      <h2>Resource Availability</h2>
+      <div class="table-wrap">
+      <table>
+        <tr><th>Resource</th><th>Total</th><th>Available</th></tr>
+        {% for res in resources %}
+        <tr>
+          <td>{{ res.resource_name }}</td>
+          <td>{{ res.total_quantity }}</td>
+          <td>{{ res.available_quantity }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      </div>
+    </div>
+  </div>
+{% endblock %}

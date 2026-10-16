@@ -1,0 +1,186 @@
+
+:root {
+  --primary: #2563eb;
+  --primary-dark: #1e40af;
+  --bg: #f4f6fb;
+  --panel: #ffffff;
+  --border: #e2e8f0;
+  --text: #1e293b;
+  --muted: #64748b;
+  --success: #16a34a;
+  --success-bg: #dcfce7;
+  --warning: #d97706;
+  --warning-bg: #fef3c7;
+  --danger: #dc2626;
+  --danger-bg: #fee2e2;
+  --critical: #991b1b;
+  --sidebar-w: 220px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.layout { display: flex; min-height: 100vh; }
+
+/* ---------------- SIDEBAR ---------------- */
+.sidebar {
+  width: var(--sidebar-w);
+  background: #111827;
+  color: #e5e7eb;
+  flex-shrink: 0;
+  padding: 20px 0;
+}
+.sidebar .brand {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  padding: 0 20px 20px;
+  border-bottom: 1px solid #1f2937;
+  margin-bottom: 10px;
+}
+.sidebar .brand small { display: block; font-size: 0.7rem; color: #9ca3af; font-weight: 400; }
+.sidebar nav a {
+  display: block;
+  padding: 10px 20px;
+  color: #d1d5db;
+  text-decoration: none;
+  font-size: 0.92rem;
+  border-left: 3px solid transparent;
+}
+.sidebar nav a:hover, .sidebar nav a.active {
+  background: #1f2937;
+  border-left-color: var(--primary);
+  color: #fff;
+}
+
+/* ---------------- MAIN ---------------- */
+.main { flex: 1; padding: 24px 32px; max-width: 1400px; }
+.page-title { font-size: 1.5rem; margin: 0 0 4px; }
+.page-subtitle { color: var(--muted); margin: 0 0 20px; font-size: 0.9rem; }
+
+/* ---------------- FLASH MESSAGES ---------------- */
+.flash { padding: 10px 16px; border-radius: 6px; margin-bottom: 14px; font-size: 0.9rem; }
+.flash.success { background: var(--success-bg); color: #14532d; border: 1px solid #86efac; }
+.flash.error { background: var(--danger-bg); color: #7f1d1d; border: 1px solid #fca5a5; }
+
+/* ---------------- CARDS ---------------- */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px 18px;
+}
+.stat-card .value { font-size: 1.7rem; font-weight: 700; color: var(--primary-dark); }
+.stat-card .label { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+
+.panel {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 18px 20px; margin-bottom: 22px;
+}
+.panel h2 { margin-top: 0; font-size: 1.1rem; }
+.panel h3 { font-size: 1rem; color: var(--muted); }
+
+/* ---------------- TABLES ---------------- */
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; }
+tr:hover td { background: #fafbff; }
+.table-wrap { overflow-x: auto; }
+
+/* ---------------- BADGES ---------------- */
+.badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+/* Badge color is chosen via a data-tone attribute set from the template
+   (see the `tone_for_status` Jinja filter in app.py), rather than
+   using the raw status text as a CSS class name -- status strings can
+   contain spaces (e.g. "In Progress"), which are not valid in a class
+   selector. */
+.badge[data-tone="danger"]  { background: var(--danger-bg);  color: var(--critical); }
+.badge[data-tone="warning"] { background: var(--warning-bg); color: var(--warning); }
+.badge[data-tone="success"] { background: var(--success-bg); color: var(--success); }
+.badge[data-tone="info"]    { background: #dbeafe; color: var(--primary-dark); }
+.badge[data-tone="neutral"] { background: #f1f5f9; color: var(--muted); }
+
+/* ---------------- FORMS ---------------- */
+form.inline { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 12px; }
+label { font-size: 0.78rem; color: var(--muted); display: block; margin-bottom: 3px; }
+input, select, textarea {
+  width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 0.88rem; font-family: inherit; background: #fff;
+}
+textarea { resize: vertical; min-height: 60px; }
+button, .btn {
+  padding: 7px 14px; border-radius: 6px; border: none; background: var(--primary);
+  color: #fff; font-size: 0.85rem; cursor: pointer; font-weight: 600;
+}
+button:hover, .btn:hover { background: var(--primary-dark); }
+button.secondary, .btn.secondary { background: #64748b; }
+button.danger, .btn.danger { background: var(--danger); }
+button.success, .btn.success { background: var(--success); }
+.btn-sm { padding: 4px 9px; font-size: 0.78rem; }
+
+.tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+.tabs a {
+  padding: 8px 16px; text-decoration: none; color: var(--muted); font-size: 0.88rem;
+  border-bottom: 2px solid transparent;
+}
+.tabs a.active { color: var(--primary-dark); border-bottom-color: var(--primary); font-weight: 600; }
+
+/* ---------------- GANTT CHART ---------------- */
+.gantt { display: flex; align-items: stretch; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin: 14px 0; }
+.gantt-block {
+  padding: 10px 6px; text-align: center; color: #fff; font-size: 0.78rem; font-weight: 600;
+  border-right: 1px solid rgba(255,255,255,0.3); min-width: 40px;
+}
+.gantt-ruler { display: flex; font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+
+/* ---------------- MISC ---------------- */
+.muted { color: var(--muted); font-size: 0.85rem; }
+.section-divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+.metric-row { display: flex; gap: 24px; flex-wrap: wrap; margin: 10px 0; }
+.metric-box { text-align: center; }
+.metric-box .num { font-size: 1.4rem; font-weight: 700; color: var(--primary-dark); }
+.metric-box .lbl { font-size: 0.75rem; color: var(--muted); }
+.progress-bar { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+.progress-bar > div { height: 100%; background: var(--primary); }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+.matrix-table td, .matrix-table th { text-align: center; }
+code.step { display: block; font-size: 0.78rem; padding: 2px 0; color: var(--muted); }
+
+/* ---------------- AUTH (login / sign up) ---------------- */
+body.auth-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+.auth-card {
+  width: 100%; max-width: 400px; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 28px 30px; box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
+}
+.auth-brand { font-size: 1.4rem; font-weight: 700; color: var(--primary-dark); margin-bottom: 18px; }
+.auth-brand small { display: block; font-size: 0.72rem; color: var(--muted); font-weight: 400; }
+.auth-title { font-size: 1.15rem; margin: 0 0 14px; }
+.auth-field { margin-bottom: 14px; }
+.auth-field .muted { font-size: 0.75rem; }
+.auth-submit { width: 100%; padding: 10px; font-size: 0.95rem; margin-top: 4px; }
+.auth-switch { text-align: center; font-size: 0.85rem; color: var(--muted); margin: 16px 0 0; }
+.auth-switch a { color: var(--primary); }
+
+.sidebar-user { margin-top: 24px; padding: 16px 20px 0; border-top: 1px solid #1f2937; font-size: 0.82rem; color: #9ca3af; }
+.sidebar-user strong { display: block; color: #fff; font-size: 0.9rem; margin-bottom: 8px; word-break: break-all; }
+.sidebar-user button { width: 100%; background: #374151; }
+.sidebar-user button:hover { background: var(--danger); }
+
+/* Maintenance requests: action cells (buttons / dropdown / remarks box side by side) */
+td.actions form { display: inline-flex; gap: 6px; align-items: center; margin-right: 4px; }
+td.actions select, td.actions input { width: 150px; padding: 4px 6px; font-size: 0.8rem; }
+
+/* ---------------- LIVE MONITORING ---------------- */
+.mon-toolbar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; font-size: 0.85rem; }
+.spark { width: 100%; height: 70px; background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; margin-top: 8px; }
+.spark-caption { font-size: 0.72rem; margin-top: 2px; }
+.core-row { display: grid; grid-template-columns: 56px 1fr 52px; gap: 8px; align-items: center; font-size: 0.78rem; margin-bottom: 5px; }
+.core-row span:last-child { text-align: right; }
+.progress-bar > div { transition: width 0.4s; }

@@ -1,0 +1,24 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "SmartLab: install requirements",
+      "type": "shell",
+      "command": "pip install -r requirements.txt",
+      "problemMatcher": []
+    },
+    {
+      "label": "SmartLab: set up / reset database",
+      "type": "shell",
+      "command": "python setup_db.py",
+      "problemMatcher": []
+    },
+    {
+      "label": "SmartLab: run tests",
+      "type": "shell",
+      "command": "python -m unittest discover -s tests -t . -v",
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}

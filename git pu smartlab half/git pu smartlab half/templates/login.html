@@ -1,0 +1,16 @@
+{% extends "auth_base.html" %}
+{% block title %}Log in{% endblock %}
+{% block content %}
+  <h1 class="auth-title">Log in</h1>
+  <form method="POST" action="{{ url_for('auth.login') }}">
+    {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+    <div class="auth-field"><label for="username">Username</label>
+      <input id="username" name="username" value="{{ username }}" autocomplete="username" required autofocus>
+    </div>
+    <div class="auth-field"><label for="password">Password</label>
+      <input id="password" type="password" name="password" autocomplete="current-password" required>
+    </div>
+    <button type="submit" class="auth-submit">Log in</button>
+  </form>
+  <p class="auth-switch">New here? <a href="{{ url_for('auth.signup') }}">Create an account</a></p>
+{% endblock %}

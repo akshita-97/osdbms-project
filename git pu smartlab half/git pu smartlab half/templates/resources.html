@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Resources{% endblock %}
+{% block content %}
+  <h1 class="page-title">Resource Management</h1>
+  <p class="page-subtitle">Limited maintenance resources shared across all pending maintenance tasks.</p>
+
+  <div class="panel">
+    <h2>Add Resource</h2>
+    <form class="form-grid" method="POST" action="{{ url_for('resources.add_resource') }}">
+      <div><label>Resource Name</label><input name="resource_name" placeholder="RAM Module 8GB" required></div>
+      <div><label>Resource Type</label>
+        <select name="resource_type" required>{% for t in resource_types %}<option>{{ t }}</option>{% endfor %}</select>
+      </div>
+      <div><label>Total Quantity</label><input type="number" name="total_quantity" min="0" required></div>
+      <div style="align-self:end;"><button type="submit">Add Resource</button></div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <h2>Resource Inventory</h2>
+    <div class="table-wrap">
+    <table>
+      <tr><th>Resource</th><th>Type</th><th>Total</th><th>Allocated</th><th>Available</th><th>Update Total</th></tr>
+      {% for r in resources %}
+      <tr>
+        <td>{{ r.resource_name }}</td>
+        <td>{{ r.resource_type }}</td>
+        <td>{{ r.total_quantity }}</td>
+        <td>{{ r.total_quantity - r.available_quantity }}</td>
+        <td>{{ r.available_quantity }}</td>
+        <td>
+          <form class="inline" method="POST" action="{{ url_for('resources.update_total', resource_id=r.resource_id) }}">
+            <input type="number" name="total_quantity" value="{{ r.total_quantity }}" min="0" style="width:80px;">
+            <button class="btn-sm" type="submit">Update</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="muted">No resources yet.</td></tr>
+      {% endfor %}
+    </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Active Maintenance Tasks</h2>
+    <p class="muted">Click "Manage" to set resource requirements and run the allocation workflow for a task.</p>
+    <div class="table-wrap">
+    <table>
+      <tr><th>Task</th><th>Computer</th><th>Priority</th><th>Status</th><th></th></tr>
+      {% for t in tasks %}
+      {% if t.status not in ['Completed', 'Cancelled'] %}
+      <tr>
+        <td>{{ t.task_id }}</td><td>{{ t.computer_id }}</td><td>{{ t.priority }}</td>
+        <td><span class="badge" data-tone="{{ t.status|tone }}">{{ t.status }}</span></td>
+        <td><a class="btn btn-sm" href="{{ url_for('resources.execution', task_id=t.task_id) }}">Manage</a></td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </table>
+    </div>
+  </div>
+{% endblock %}

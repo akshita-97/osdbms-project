@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}SmartLab{% endblock %} | SmartLab</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">SmartLab
+        <small>Lab Maintenance &amp; Resource Allocation</small>
+      </div>
+      <nav>
+        <a href="{{ url_for('dashboard.index') }}" class="{{ 'active' if request.endpoint == 'dashboard.index' }}">Dashboard</a>
+        <a href="{{ url_for('computers.list_labs') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('computers.') }}">Labs &amp; Computers</a>
+        <a href="{{ url_for('maintenance.index') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('maintenance.') and request.endpoint != 'maintenance.history' }}">Maintenance</a>
+        <a href="{{ url_for('scheduling.index') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('scheduling.') }}">Scheduling Queue</a>
+        <a href="{{ url_for('resources.index') }}" class="{{ 'active' if request.endpoint == 'resources.index' }}">Resources</a>
+        <a href="{{ url_for('maintenance.history') }}" class="{{ 'active' if request.endpoint == 'maintenance.history' }}">History</a>
+        <a href="{{ url_for('monitoring.index') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('monitoring.') }}">Live Monitoring</a>
+      </nav>
+      {% if session.get('user_id') %}
+      <div class="sidebar-user">
+        Signed in as
+        <strong>{{ session.get('display_name') }}</strong>
+        <form method="POST" action="{{ url_for('auth.logout') }}">
+          <button type="submit">Log out</button>
+        </form>
+      </div>
+      {% endif %}
+    </aside>
+
+    <main class="main">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

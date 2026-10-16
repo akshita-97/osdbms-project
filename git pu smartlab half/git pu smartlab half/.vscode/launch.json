@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "SmartLab: Run app",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/app.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "SmartLab: Run app (debugger, breakpoints work)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/app.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "env": { "SMARTLAB_NO_RELOAD": "1" },
+      "justMyCode": true
+    },
+    {
+      "name": "SmartLab: Set up / reset database",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/setup_db.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    }
+  ]
+}

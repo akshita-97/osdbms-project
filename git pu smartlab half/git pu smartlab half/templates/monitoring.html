@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Live Monitoring{% endblock %}
+{% block content %}
+  <h1 class="page-title">Live System Monitoring</h1>
+  <p class="page-subtitle">
+    Real-time health of the machine running SmartLab ({{ info.hostname }} &middot; {{ info.os }}).
+    Updates automatically every {{ refresh_seconds }} seconds.
+  </p>
+
+  {% if psutil_error %}
+  <div class="flash error">
+    The <code>psutil</code> library is not installed, so no readings are available.
+    Run <code>pip install psutil</code> (or <code>pip install -r requirements.txt</code>) in the same
+    Python environment as SmartLab, then restart the app.
+  </div>
+  {% endif %}
+
+  <div class="mon-toolbar">
+    <span id="mon-status" class="badge" data-tone="neutral">Loading...</span>
+    <span class="muted">Last update: <strong id="mon-time">--:--:--</strong></span>
+    <span class="muted">Next refresh in <strong id="mon-countdown">{{ refresh_seconds }}</strong>s</span>
+    <button type="button" class="btn-sm secondary" id="mon-pause">Pause</button>
+    <button type="button" class="btn-sm" id="mon-now">Refresh now</button>
+  </div>
+
+  <div class="card-grid">
+    <div class="stat-card"><div class="value" id="v-cpu">--</div><div class="label">CPU Usage</div></div>
+    <div class="stat-card"><div class="value" id="v-ram">--</div><div class="label">RAM Usage</div></div>
+    <div class="stat-card"><div class="value" id="v-disk">--</div><div class="label">Disk Usage ({{ info.working_drive }})</div></div>
+    <div class="stat-card"><div class="value" id="v-uptime">--</div><div class="label">Uptime</div></div>
+    <div class="stat-card"><div class="value" id="v-procs">--</div><div class="label">Running Processes</div></div>
+    <div class="stat-card"><div class="value" id="v-temp">--</div><div class="label">Temperature</div></div>
+  </div>
+
+  <div class="two-col">
+    <div class="panel">
+      <h2>CPU</h2>
+      <div class="muted" id="cpu-detail">&nbsp;</div>
+      <svg class="spark" id="spark-cpu" viewBox="0 0 300 70" preserveAspectRatio="none"></svg>
+      <div class="muted spark-caption">Last 5 minutes (0-100%)</div>
+      <h3>Per-core usage</h3>
+      <div id="cores"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Memory</h2>
+      <div class="muted" id="ram-detail">&nbsp;</div>
+      <svg class="spark" id="spark-ram" viewBox="0 0 300 70" preserveAspectRatio="none"></svg>
+      <div class="muted spark-caption">Last 5 minutes (0-100%)</div>
+      <h3>Swap / virtual memory</h3>
+      <div class="progress-bar"><div id="swap-bar" style="width:0%"></div></div>
+      <div class="muted" id="swap-detail">&nbsp;</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="panel">
+      <h2>Top Processes</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>PID</th><th>Name</th><th>CPU %</th><th>RAM %</th></tr></thead>
+        <tbody id="procs"><tr><td colspan="4" class="muted">Loading...</td></tr></tbody>
+      </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Disks &amp; Network</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Drive</th><th>Used</th><th>Total</th><th>Usage</th></tr></thead>
+        <tbody id="disks"><tr><td colspan="4" class="muted">Loading...</td></tr></tbody>
+      </table>
+      </div>
+      <h3>Network</h3>
+      <table>
+        <tr><td class="muted">Download speed</td><td id="net-down">--</td></tr>
+        <tr><td class="muted">Upload speed</td><td id="net-up">--</td></tr>
+        <tr><td class="muted">Total received</td><td id="net-recv">--</td></tr>
+        <tr><td class="muted">Total sent</td><td id="net-sent">--</td></tr>
+      </table>
+      <p class="muted" id="battery-line" style="display:none;"></p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>System Info</h2>
+    <table>
+      <tr><td class="muted">Hostname</td><td>{{ info.hostname }}</td></tr>
+      <tr><td class="muted">Operating system</td><td>{{ info.os }}</td></tr>
+      <tr><td class="muted">Processor</td><td>{{ info.processor }}</td></tr>
+      <tr><td class="muted">Python</td><td>{{ info.python }}</td></tr>
+    </table>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+{% if stats %}<script id="initial-stats" type="application/json">{{ stats|tojson }}</script>{% endif %}
+<script>
+(function () {
+  var REFRESH = {{ refresh_seconds }};
+  var STATS_URL = "{{ url_for('monitoring.api_stats') }}";
+  var MAX_POINTS = 30;                       // 30 samples x 10 s = 5 minutes
+  var history = { cpu: [], ram: [] };
+  var remaining = REFRESH, paused = false, busy = false;
+
+  function $(id) { return document.getElementById(id); }
+  function pct(x) { return x.toFixed(1) + "%"; }
+  function bytes(n) {
+    var u = ["B", "KB", "MB", "GB", "TB"], i = 0;
+    while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+    return n.toFixed(i === 0 ? 0 : 1) + " " + u[i];
+  }
+  function uptime(s) {
+    var d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+    return d > 0 ? d + "d " + h + "h" : h + "h " + m + "m";
+  }
+  function tone(p) { return p >= 90 ? "var(--danger)" : p >= 70 ? "var(--warning)" : "var(--success)"; }
+
+  function bar(p) {                          // progress bar element, colour by load
+    var wrap = document.createElement("div"); wrap.className = "progress-bar";
+    var fill = document.createElement("div");
+    fill.style.width = Math.min(p, 100) + "%"; fill.style.background = tone(p);
+    wrap.appendChild(fill); return wrap;
+  }
+  function cell(tr, text) { var td = document.createElement("td"); td.textContent = text; tr.appendChild(td); return td; }
+
+  function spark(svgId, values) {
+    var pts = values.map(function (v, i) {
+      var x = values.length === 1 ? 300 : i * 300 / (MAX_POINTS - 1);
+      return x.toFixed(1) + "," + (68 - v * 0.66).toFixed(1);
+    });
+    $(svgId).innerHTML = '<polyline fill="none" stroke="#2563eb" stroke-width="2" points="' + pts.join(" ") + '"/>';
+  }
+  function push(arr, v) { arr.push(v); if (arr.length > MAX_POINTS) arr.shift(); }
+
+  function render(d) {
+    var disk0 = d.disks[0];
+    $("v-cpu").textContent = pct(d.cpu.percent);
+    $("v-ram").textContent = pct(d.memory.percent);
+    $("v-disk").textContent = disk0 ? pct(disk0.percent) : "n/a";
+    $("v-uptime").textContent = uptime(d.uptime_seconds);
+    $("v-procs").textContent = d.process_count;
+    $("v-temp").textContent = d.temperature === null ? "n/a" : d.temperature + " \u00B0C";
+
+    var c = d.cpu, bits = [c.physical_cores + " cores / " + c.logical_cores + " threads"];
+    if (c.freq_mhz) bits.push(c.freq_mhz + " MHz");
+    if (c.load_avg) bits.push("load avg " + c.load_avg.join(" / "));
+    $("cpu-detail").textContent = bits.join(" \u00B7 ");
+
+    var m = d.memory;
+    $("ram-detail").textContent = bytes(m.used) + " used of " + bytes(m.total) + " (" + bytes(m.available) + " available)";
+    $("swap-detail").textContent = m.swap_total ? bytes(m.swap_used) + " of " + bytes(m.swap_total) + " (" + pct(m.swap_percent) + ")" : "No swap configured";
+    var sw = $("swap-bar"); sw.style.width = Math.min(m.swap_percent, 100) + "%"; sw.style.background = tone(m.swap_percent);
+
+    push(history.cpu, c.percent); push(history.ram, m.percent);
+    spark("spark-cpu", history.cpu); spark("spark-ram", history.ram);
+
+    var cores = $("cores"); cores.innerHTML = "";
+    c.per_core.forEach(function (p, i) {
+      var row = document.createElement("div"); row.className = "core-row";
+      var lbl = document.createElement("span"); lbl.textContent = "Core " + i;
+      var val = document.createElement("span"); val.textContent = pct(p);
+      row.appendChild(lbl); row.appendChild(bar(p)); row.appendChild(val); cores.appendChild(row);
+    });
+
+    var pb = $("procs"); pb.innerHTML = "";
+    d.top_processes.forEach(function (p) {
+      var tr = document.createElement("tr");
+      cell(tr, p.pid); cell(tr, p.name); cell(tr, p.cpu.toFixed(1)); cell(tr, p.mem.toFixed(1));
+      pb.appendChild(tr);
+    });
+
+    var db = $("disks"); db.innerHTML = "";
+    d.disks.forEach(function (k) {
+      var tr = document.createElement("tr");
+      cell(tr, k.mount); cell(tr, bytes(k.used)); cell(tr, bytes(k.total));
+      var td = document.createElement("td"); td.appendChild(bar(k.percent));
+      var s = document.createElement("small"); s.textContent = pct(k.percent); td.appendChild(s);
+      tr.appendChild(td); db.appendChild(tr);
+    });
+
+    var n = d.network;
+    $("net-down").textContent = bytes(n.down_speed) + "/s"; $("net-up").textContent = bytes(n.up_speed) + "/s";
+    $("net-recv").textContent = bytes(n.recv_total); $("net-sent").textContent = bytes(n.sent_total);
+
+    var bl = $("battery-line");
+    if (d.battery) { bl.style.display = ""; bl.textContent = "Battery: " + d.battery.percent + "% (" + (d.battery.plugged ? "charging / plugged in" : "on battery") + ")"; }
+
+    $("mon-time").textContent = d.timestamp;
+    setStatus("Live", "success");
+  }
+
+  function setStatus(text, t) { var s = $("mon-status"); s.textContent = text; s.setAttribute("data-tone", t); }
+
+  function refresh() {
+    if (busy) return; busy = true;
+    fetch(STATS_URL, { headers: { "Accept": "application/json" } })
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(render)
+      .catch(function (e) { setStatus("Update failed (" + e.message + ") - retrying", "danger"); })
+      .then(function () { busy = false; remaining = REFRESH; });
+  }
+
+  setInterval(function () {                  // 1-second tick drives the countdown + the 10 s refresh
+    if (paused) return;
+    remaining = Math.max(remaining - 1, 0);
+    $("mon-countdown").textContent = remaining;
+    if (remaining === 0) refresh();
+  }, 1000);
+
+  $("mon-now").addEventListener("click", refresh);
+  $("mon-pause").addEventListener("click", function () {
+    paused = !paused; this.textContent = paused ? "Resume" : "Pause";
+    setStatus(paused ? "Paused" : "Live", paused ? "neutral" : "success");
+    if (!paused) refresh();
+  });
+
+  var first = $("initial-stats");              // readings taken by the server when the page loaded
+  if (first) { try { render(JSON.parse(first.textContent)); remaining = REFRESH; } catch (e) { refresh(); } }
+  else { refresh(); }
+})();
+</script>
+{% endblock %}
