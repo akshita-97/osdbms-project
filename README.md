@@ -1,131 +1,233 @@
-# SmartLab -- Computer Lab Maintenance System
+# SmartLab -- Intelligent Computer Lab Maintenance & Resource Allocation System
 
-A Flask + MySQL web application for managing a college computer lab:
-labs, computers, reported faults, technicians and maintenance history.
+A 3rd-year BTech CSE academic project: a Flask + MySQL web application
+that manages a college computer lab's maintenance workload, using
+classic OS concepts -- the Banker's Algorithm -- as an **application-level
+simulation** to allocate and track the limited
+maintenance resources (technicians, RAM modules, keyboards, network
+testers, OS installation kits, etc.) they need.
 
-This is the **initial phase** of the project: a clean web UI on top of a
-small relational database. Everything runs on one laptop (no cloud, no Docker).
+> **Core idea:** Multiple maintenance jobs compete for limited lab
+> resources, so the system uses the Banker's Algorithm to grant requests
+> only when the system stays safe, and tracks resource allocation and release for each job.
 
-## What it does
+Runs entirely on **one Windows laptop** -- no cloud, no Docker, no
+external network dependency. See `docs/PROJECT_OVERVIEW.md` for the
+full write-up and `docs/DATABASE.md` for the DBMS
+concept documentation your viva will ask about.
 
-| Page | What you can do |
-|------|-----------------|
-| **Dashboard** | Summary cards (labs, computers, open requests, technicians) and recent activity |
-| **Labs & Computers** | Add / edit / delete labs, add / delete computers, change a computer's status, filter by lab |
-| **Maintenance** | Report a fault, approve or reject it, assign a technician and start work, mark it completed, manage technicians |
-| **History** | Every completed repair, with technician, time taken and remarks (filter by computer) |
+## Quick Start (VS Code) -- about 5 minutes
 
-A maintenance request moves through these steps, and the computer and
-technician statuses are updated automatically at each step:
+You need **Python 3.10+** and **MySQL Server 8.x** installed (details in
+section 1). Then:
 
-```
-Pending Review --> Approved --> In Progress --> Completed (shows up in History)
-       \--> Rejected
-```
-
-## Quick start (VS Code, about 5 minutes)
-
-You need **Python 3.10+** and **MySQL Server 8.x** installed and running.
-
-1. **Open the folder** in VS Code: *File -> Open Folder...* -> select the `smartlab` folder.
-2. **Open a terminal** (*Terminal -> New Terminal*) and run:
+1. **Open the folder:** VS Code -> *File -> Open Folder...* -> select the `smartlab` folder.
+   Install the recommended extensions when VS Code offers (Python, Debugpy).
+2. **Open a terminal in VS Code** (*Terminal -> New Terminal*) and run:
 
    ```bat
    python -m venv venv
    venv\Scripts\activate
    pip install -r requirements.txt
+   copy .env.example .env
    ```
 
-   (macOS / Linux: `source venv/bin/activate`)
-3. **Set your MySQL password:** open the `.env` file and change
-   `DB_PASSWORD=your_mysql_password_here` to your real MySQL password. Save it.
-4. **Create the database and demo data** (one command, no MySQL client needed):
+   (macOS/Linux: `source venv/bin/activate` and `cp .env.example .env`.)
+3. **Put your MySQL password in `.env`:** open `.env`, set `DB_PASSWORD=...`, save.
+4. **Create the database + demo data** (one command, no MySQL client needed):
 
    ```bat
    python setup_db.py
    ```
-5. **Run the app:** press **F5** in VS Code (choose *SmartLab: Run app*) or run
-   `python app.py`, then open **http://127.0.0.1:5000**.
 
-If VS Code asks which Python interpreter to use, pick the one inside `venv`.
+5. **Run it:** press **F5** (pick *SmartLab: Run app*) or run `python app.py`,
+   then open **http://127.0.0.1:5000**.
 
-> Windows shortcut: double-click `setup_windows.bat` once (it does steps 2-4),
-> then `run_windows.bat` whenever you want to start the app.
+On Windows you can instead double-click **`setup_windows.bat`** once, then
+**`run_windows.bat`** whenever you want to start the app.
 
-Re-run `python setup_db.py` at any time to reset the database to the clean demo data.
+To check everything works, run the tests: `python -m unittest discover -s tests -t . -v`
+(or the *Testing* panel in VS Code).
 
-## Demo walkthrough
+---
 
-1. **Dashboard** -- see the seeded labs, computers and requests at a glance.
-2. **Labs & Computers** -- add a lab, add a computer to it, change a computer's status.
-3. **Maintenance** -- report a new fault, then *Approve* it, *Assign & Start* it with a
-   technician, and *Mark Completed* with remarks. Watch the computer status and the
-   technician's availability change along the way.
-4. **History** -- your completed repair now appears here.
+## 1. Prerequisites
 
-## Database (MySQL, 4 tables)
+- **Python 3.10+** (https://www.python.org/downloads/ -- during
+  install, tick "Add Python to PATH")
+- **MySQL Server 8.x** (https://dev.mysql.com/downloads/installer/ --
+  the "MySQL Installer for Windows" is the easiest route; remember the
+  root password you set)
+- (Optional) **VS Code** or any editor
 
-```
-labs (lab_id PK, lab_name, location, capacity, status)
-   |
-   | 1 lab : many computers
-   v
-computers (computer_id PK, lab_id FK, ip_address, processor, ram_gb,
-           storage_gb, os_name, status)
-   |
-   | 1 computer : many requests
-   v
-maintenance_requests (request_id PK, computer_id FK, technician_id FK, problem_description,
-                      fault_type, severity, status, reported_at, started_at,
-                      completed_at, remarks)
-   ^
-   | 1 technician : many requests
-   |
-technicians (technician_id PK, name, specialization, availability, contact)
+## 2. Installation (Windows Command Prompt / PowerShell)
+
+```bat
+:: 1. Go into the project folder (wherever you extracted/cloned it)
+cd smartlab
+
+:: 2. Create a virtual environment
+python -m venv venv
+
+:: 3. Activate it
+venv\Scripts\activate
+
+:: 4. Install dependencies
+pip install -r requirements.txt
 ```
 
-Things worth pointing out when you present it:
+You should see `(venv)` at the start of your prompt once the
+environment is activated.
 
-- **Foreign keys** link the tables (a computer must belong to a lab, a request must be about a real computer).
-- **ENUM and CHECK constraints** keep data valid (e.g. capacity can't be negative, status must be one of the allowed values).
-- **Transactions**: approving, starting and completing a request each update several tables at once; if one update fails, all of them are rolled back (`execute_transaction` in `db/database.py`).
-- **Parameterized queries** everywhere (`%s` placeholders), so the app is safe from SQL injection.
-- **Validation rules** in `services/maintenance_service.py`, e.g. you can't delete a lab that still has computers, and you can't start work without a free technician.
+## 3. Set Up MySQL
 
-## Project structure
+**Easiest way:** finish section 4 (`.env`) first, then run:
+
+```bat
+python setup_db.py
+```
+
+It creates `smartlab_db`, all tables, triggers and indexes, and loads the
+demo data. Use `python setup_db.py --yes` to skip the confirmation prompt.
+Re-run it any time to reset the database to a clean demo state (it drops
+and recreates the database).
+
+**Manual alternative** (if you prefer the MySQL client): open the
+**MySQL Command Line Client** and run:
+
+```sql
+SOURCE C:/path/to/smartlab/database/schema.sql;
+SOURCE C:/path/to/smartlab/database/seed.sql;
+```
+
+or from a normal Command Prompt:
+
+```bat
+mysql -u root -p < database\schema.sql
+mysql -u root -p smartlab_db < database\seed.sql
+```
+
+> Note: `schema.sql` starts with `DROP DATABASE IF EXISTS smartlab_db;
+> CREATE DATABASE smartlab_db;` so re-running it resets everything.
+
+## 4. Configure Database Credentials
+
+Copy the example environment file and edit it with your real MySQL
+password:
+
+```bat
+copy .env.example .env
+```
+
+Open `.env` in a text editor and set at least:
+
+```
+DB_USER=root
+DB_PASSWORD=your_actual_mysql_password
+```
+
+The other settings (`SECRET_KEY`, `DEFAULT_TIME_QUANTUM`, etc.) can be
+left at their defaults for a normal demo run.
+
+## 5. Run the Application
+
+```bat
+venv\Scripts\activate
+python app.py
+```
+
+(In VS Code: press **F5** and choose *SmartLab: Run app*. Use *SmartLab: Run app
+(debugger, breakpoints work)* if you want to set breakpoints.)
+
+You should see:
+
+```
+[SmartLab] Database connection OK: Connected to MySQL successfully.
+[SmartLab] Starting Flask development server on http://127.0.0.1:5000
+```
+
+Open **http://127.0.0.1:5000** in your browser.
+
+If instead you see a warning about not being able to connect to
+MySQL, double-check that:
+1. The MySQL service is actually running (Windows Services app, or
+   `net start MySQL80` from an admin Command Prompt).
+2. `.env` has the correct `DB_PASSWORD`.
+3. You actually ran `python setup_db.py`.
+
+If MySQL is down while the app is running, pages show a friendly "Can't reach the
+database" screen with the fix steps instead of a stack trace.
+
+## 5b. Logging In (user accounts)
+
+Every page now requires a login. On first visit you are sent to
+**/login**; click **Create an account** to sign up with a username and
+password (min. 8 characters). The account is saved in the MySQL `users`
+table, so it stays after you close the app or restart MySQL. Passwords are
+stored only as salted hashes. Use **Log out** at the bottom of the sidebar.
+
+- Existing installs: just restart the app -- it creates the `users` table
+  automatically; no need to re-run `setup_db.py`.
+- Re-running `python setup_db.py` resets the lab data but **keeps** all user
+  accounts.
+
+## 6. Demo Walkthrough
+
+1. **Dashboard** -- see the seeded labs/computers/tasks/resources at a
+   glance.
+2. **Maintenance** page -- see 6 sample maintenance requests already
+   converted into tasks J-101..J-106; try reporting a new fault
+   yourself and approving it, assigning a technician and completing it.
+3. **Execution Flow** -- see the Maximum / Allocation / Need matrices,
+   request resources for a task and check the SAFE / UNSAFE result.
+4. **Resources** page -- see the 6 seeded resource types and their
+   current availability.
+5. Open a task's **Manage** page (from Maintenance or Resources) and
+   walk it through **Allocate Resources -> Start Maintenance ->
+   Complete Maintenance -> Release Resources**.
+6. **History** page -- see the two completed historical maintenance
+   records for PC-04 and PC-10.
+
+## 7. Project Structure
 
 ```
 smartlab/
-├── app.py                 Flask entry point
-├── config.py              Reads settings from .env
-├── setup_db.py            One-command database creation + demo data
-├── requirements.txt       Flask, mysql-connector-python, python-dotenv
-├── .env                   Your database password goes here (don't share it)
-├── setup_windows.bat / run_windows.bat
-├── .vscode/               Run, debug and test settings for VS Code
+├── app.py                   Flask entry point
+├── config.py                Loads settings from .env
+├── setup_db.py              One-command database creation + demo data
+├── setup_windows.bat / run_windows.bat   Windows helpers
+├── requirements.txt
+├── .env.example
+├── .vscode/                 Run/debug, test and task configs for VS Code
+├── tests/                   Automated tests (Banker's + page smoke tests)
 ├── database/
-│   ├── schema.sql         Tables, constraints, indexes
-│   └── seed.sql           Demo data
-├── db/database.py         MySQL helper functions
-├── services/maintenance_service.py   Business logic + validation
-├── routes/                dashboard.py, computers.py, maintenance.py
-├── templates/             HTML pages (Jinja2)
-├── static/                CSS and a little JavaScript
-└── tests/                 Page smoke tests
+│   ├── schema.sql            Full DDL (tables, constraints, triggers, indexes)
+│   └── seed.sql               Realistic sample data
+├── db/
+│   └── database.py           mysql-connector-python helpers (parameterized SQL, transactions)
+├── services/                  Business logic + validation
+│   ├── maintenance_service.py
+│   ├── resource_service.py    banker_service.py
+├── routes/                     Flask Blueprints (thin controllers)
+│   ├── dashboard.py  computers.py  maintenance.py
+│   ├── banker.py  resources.py
+├── templates/                  Jinja2 HTML (one file per page)
+├── static/
+│   ├── css/style.css          Dependency-free styling
+│   └── js/dashboard.js
+└── docs/
+    ├── PROJECT_OVERVIEW.md    ├── DATABASE.md
+    └── TESTING.md
 ```
 
-## Run the tests
+## 8. Notes / Limitations (be ready to explain these in your viva)
 
-```bat
-python -m unittest discover -s tests -t . -v
-```
+- Every lab computer in the database is a simulated record only; the
+  app does not read any real hardware or OS data.
+- The Banker's Algorithm is an **application-level simulation**
+  for resource allocation; it does not touch the real OS.
+- Resource allocation is a straightforward availability check: a task
+  is allocated its full remaining need only if every required resource
+  is currently available, otherwise it waits.
 
-(or use the *Testing* panel in VS Code). The tests skip themselves if MySQL isn't reachable.
-
-## Troubleshooting
-
-- **"Can't reach the database" page / warning on start:** make sure the MySQL service is
-  running (Windows: *Services* app -> *MySQL80* -> Start), that `DB_PASSWORD` in `.env` is
-  correct, and that you ran `python setup_db.py`.
-- **`ModuleNotFoundError`:** the virtual environment isn't active or the requirements
-  aren't installed. Run `venv\Scripts\activate` and `pip install -r requirements.txt`.
+Full details: `docs/PROJECT_OVERVIEW.md`, Section "Limitations".
