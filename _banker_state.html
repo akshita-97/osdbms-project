@@ -1,0 +1,36 @@
+{% if show_result %}
+<div class="panel flow-status" data-tone="{{ 'success' if s.safe else ('danger' if s.in_algo else 'neutral') }}">
+  <h2>Result:
+    {% if not s.in_algo %}<span class="badge" data-tone="neutral">NOTHING TO CHECK</span>
+    {% elif s.safe %}<span class="badge" data-tone="success">SAFE</span>
+    {% else %}<span class="badge" data-tone="danger">UNSAFE</span>{% endif %}
+  </h2>
+  {% if s.safe %}<p>Safe Sequence: <strong>{{ s.sequence }}</strong></p>
+  {% elif s.in_algo %}<p>No safe execution sequence exists.</p>
+  {% else %}<p class="muted">Enter the resources required for at least one task below.</p>{% endif %}
+  {% if s.unentered and s.in_algo %}<p class="muted">Not counted yet (no resources entered): {{ s.unentered|join(', ') }}</p>{% endif %}
+</div>
+{% endif %}
+
+<div class="panel">
+  <h2>Total / Allocated / Available Resources</h2>
+  <div class="table-wrap"><table>
+    <tr><th></th>{% for r in s.resources %}<th>{{ r.resource_name }}</th>{% endfor %}</tr>
+    <tr><th>Total</th>{% for r in s.resources %}<td>{{ r.total_quantity }}</td>{% endfor %}</tr>
+    <tr><th>Allocated</th>{% for r in s.resources %}<td>{{ r.allocated }}</td>{% endfor %}</tr>
+    <tr><th>Available</th>{% for r in s.resources %}<td><strong>{{ r.available }}</strong></td>{% endfor %}</tr>
+  </table></div>
+</div>
+
+{% macro matrix(title, key, note) %}
+<div class="panel">
+  <h2>{{ title }}</h2>
+  <div class="table-wrap"><table>
+    <tr><th>Task</th>{% for r in s.resources %}<th>{{ r.resource_name }}</th>{% endfor %}</tr>
+    {% for t in s.tasks %}<tr><th>{{ t.task_id }}</th>{% for v in t[key] %}<td>{{ v }}</td>{% endfor %}</tr>
+    {% else %}<tr><td class="muted" colspan="{{ 1 + s.resources|length }}">No active tasks.</td></tr>{% endfor %}
+  </table></div>
+  <p class="muted">{{ note }}</p>
+</div>
+{% endmacro %}
+{{ matrix("Need Matrix", "need", "Need = Maximum - Allocation.") }}

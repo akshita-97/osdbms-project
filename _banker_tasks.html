@@ -1,0 +1,11 @@
+{% for t in s.tasks %}
+<tr data-task="{{ t.task_id }}">
+  <td>{{ t.task_id }}</td><td>{{ t.computer_id }}</td><td>{{ t.problem_description }}</td>
+  <td class="st"><span class="badge" data-tone="{{ t.flow_status|tone }}">{{ t.flow_status }}</span></td>
+  {% for r in s.resources %}
+  <td><input class="qty-input" type="number" min="0" max="{{ r.total_quantity }}" name="m_{{ t.task_id }}_{{ r.resource_id }}" value="{{ t.max[loop.index0] }}"></td>
+  {% endfor %}
+</tr>
+{% else %}
+<tr class="empty-row"><td colspan="{{ 4 + s.resources|length }}" class="muted">No pending tasks. Approve a request on the Maintenance page and it appears here.</td></tr>
+{% endfor %}

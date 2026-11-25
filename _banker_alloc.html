@@ -1,0 +1,16 @@
+{% for t in s.tasks %}
+<tr data-task="{{ t.task_id }}">
+  <td>{{ t.task_id }}</td><td>{{ t.computer_id }}</td>
+  <td class="st"><span class="badge" data-tone="{{ t.flow_status|tone }}">{{ t.flow_status }}</span></td>
+  {% for r in s.resources %}
+  <td><input class="qty-input" type="number" min="0" max="{{ t.need[loop.index0] }}" name="r_{{ t.task_id }}_{{ r.resource_id }}" value="{{ t.request[loop.index0] }}" {{ 'disabled' if not t.actions.start }}></td>
+  {% endfor %}
+  <td class="st">
+    {% if t.actions.start %}<button type="button" class="act success" data-act="start">Start</button>
+    {% elif t.actions.complete %}<button type="button" class="act success" data-act="complete">Complete</button>
+    {% else %}<span class="badge" data-tone="neutral">Waiting</span>{% endif %}
+  </td>
+</tr>
+{% else %}
+<tr class="empty-row"><td colspan="{{ 4 + s.resources|length }}" class="muted">No pending tasks.</td></tr>
+{% endfor %}

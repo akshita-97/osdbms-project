@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Lab PCs{% endblock %}
+{% block content %}
+  <h1 class="page-title">Lab PCs - Live Monitoring</h1>
+  <p class="page-subtitle">
+    Readings sent by the agent on each PC. Refreshes every {{ refresh_seconds }} seconds.
+    Alert when CPU, RAM or disk stays at {{ threshold|int }}% or more, or a PC goes silent for 60 seconds.
+  </p>
+
+  <div class="mon-toolbar">
+    <span id="f-status" class="badge" data-tone="neutral">Loading...</span>
+    <span class="muted">Last update: <strong id="f-time">--:--:--</strong></span>
+    <button type="button" class="btn-sm secondary" id="f-pause">Pause</button>
+    <a href="{{ url_for('fleet.rules') }}" class="btn-sm secondary">Alert rules</a>
+  </div>
+
+  <div class="pc-grid" id="pc-grid"></div>
+
+  <div class="panel">
+    <h2 id="sel-title">Select a PC</h2>
+    <div class="muted" id="sel-detail">&nbsp;</div>
+    <div class="three-col">
+      <div><h3>CPU</h3><svg class="spark" id="sp-cpu" viewBox="0 0 300 70" preserveAspectRatio="none"></svg></div>
+      <div><h3>RAM</h3><svg class="spark" id="sp-ram" viewBox="0 0 300 70" preserveAspectRatio="none"></svg></div>
+      <div><h3>Disk</h3><svg class="spark" id="sp-disk" viewBox="0 0 300 70" preserveAspectRatio="none"></svg></div>
+    </div>
+    <div class="muted spark-caption">Last 5 minutes (0-100%)</div>
+    <p><button type="button" class="btn-sm" id="tok-btn" disabled>Generate agent token</button></p>
+    <pre class="token-box" id="tok-box" style="display:none;"></pre>
+  </div>
+
+  <div class="panel">
+    <h2>Open Alerts</h2>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>PC</th><th>Severity</th><th>Details</th><th>Since</th><th>Action</th></tr></thead>
+      <tbody id="alerts"><tr><td colspan="5" class="muted">Loading...</td></tr></tbody>
+    </table>
+    </div>
+    <p class="muted spark-caption">"Raise request" adds a Pending Review maintenance request; you still approve it manually.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Recent Activity</h2>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Time</th><th>Device</th><th>Event</th><th>Detail</th></tr></thead>
+      <tbody id="events"><tr><td colspan="4" class="muted">No activity yet.</td></tr></tbody>
+    </table>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var REFRESH = {{ refresh_seconds }} * 1000, MAX = 60;
+  var U = {
+    overview: "{{ url_for('fleet.overview') }}",
+    history: "{{ url_for('fleet.history', cid='__ID__') }}",
+    token: "{{ url_for('fleet.token', cid='__ID__') }}",
+    request: "{{ url_for('fleet.alert_request', alert_id=0) }}",
+    dismiss: "{{ url_for('fleet.alert_dismiss', alert_id=0) }}"
+  };
+  var TONES = { Online: "success", Stale: "warning", Offline: "danger" };
+  var sel = null, paused = false, busy = false, pcs = [];
+
+  function $(id) { return document.getElementById(id); }
+  function url(t, id) { return t.replace("__ID__", encodeURIComponent(id)); }
+  function aurl(t, id) { return t.replace(/\/0\//, "/" + id + "/"); }
+  function post(u) { return fetch(u, { method: "POST" }).then(function (r) { return r.json(); }); }
+  function tone(p) { return p >= 90 ? "var(--danger)" : p >= 70 ? "var(--warning)" : "var(--success)"; }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function bar(p) {
+    var w = el("div", "progress-bar"), f = el("div"); f.style.width = Math.min(p, 100) + "%"; f.style.background = tone(p);
+    w.appendChild(f); return w;
+  }
+  function setStatus(t, k) { var s = $("f-status"); s.textContent = t; s.setAttribute("data-tone", k); }
+
+  function renderCards() {
+    var g = $("pc-grid"); g.innerHTML = "";
+    pcs.forEach(function (c) {
+      var d = el("div", "stat-card pc-card" + (c.computer_id === sel ? " sel" : ""));
+      var h = el("div", "pc-head"), b = el("span", "badge", c.status);
+      b.setAttribute("data-tone", TONES[c.status] || "neutral");
+      h.appendChild(el("strong", null, c.computer_id)); h.appendChild(b); d.appendChild(h);
+      [["CPU", c.cpu], ["RAM", c.ram], ["Disk", c.disk]].forEach(function (m) {
+        var row = el("div", "pc-row");
+        row.appendChild(el("span", null, m[0])); row.appendChild(bar(m[1] == null ? 0 : m[1]));
+        row.appendChild(el("span", null, m[1] == null ? "--" : m[1].toFixed(0) + "%")); d.appendChild(row);
+      });
+      d.addEventListener("click", function () { sel = c.computer_id; $("tok-box").style.display = "none"; renderCards(); renderSel(); loadHistory(); });
+      g.appendChild(d);
+    });
+  }
+
+  function renderSel() {
+    var c = pcs.filter(function (x) { return x.computer_id === sel; })[0];
+    $("tok-btn").disabled = !c;
+    if (!c) return;
+    $("sel-title").textContent = c.computer_id + " (" + c.lab_id + ")";
+    $("sel-detail").textContent = c.status + (c.hostname ? " \u00B7 " + c.hostname : "") +
+      (c.last_seen ? " \u00B7 last seen " + c.last_seen : "") + (c.version ? " \u00B7 agent v" + c.version : "");
+  }
+
+  function spark(id, vals) {
+    var pts = vals.map(function (v, i) { return (i * 300 / (MAX - 1)).toFixed(1) + "," + (68 - v * 0.66).toFixed(1); });
+    $(id).innerHTML = '<polyline fill="none" stroke-width="2" points="' + pts.join(" ") + '"/>';
+  }
+  function loadHistory() {
+    if (!sel) return;
+    var want = sel;
+    fetch(url(U.history, sel)).then(function (r) { return r.json(); }).then(function (rows) {
+      if (want !== sel) return;
+      rows = rows.slice(-MAX);
+      ["cpu", "ram", "disk"].forEach(function (k) { spark("sp-" + k, rows.map(function (r) { return r[k]; })); });
+    });
+  }
+
+  function renderAlerts(list) {
+    var tb = $("alerts"); tb.innerHTML = "";
+    if (!list.length) { var r = el("tr"), td = el("td", "muted", "No open alerts."); td.colSpan = 5; r.appendChild(td); tb.appendChild(r); return; }
+    list.forEach(function (a) {
+      var tr = el("tr");
+      var sv = el("td"), sb = el("span", "badge", a.severity);
+      sb.setAttribute("data-tone", { Critical: "danger", Warning: "warning", Info: "info" }[a.severity] || "neutral");
+      sv.appendChild(sb);
+      [a.computer_id, null, a.message, a.created_at].forEach(function (t, i) { tr.appendChild(i === 1 ? sv : el("td", null, t)); });
+      var td = el("td"), rq = el("button", "btn-sm", a.request_id ? "Request #" + a.request_id : "Raise request");
+      rq.disabled = !!a.request_id;
+      rq.addEventListener("click", function () { post(aurl(U.request, a.alert_id)).then(refresh); });
+      var dm = el("button", "btn-sm secondary", "Dismiss"); dm.style.marginLeft = "6px";
+      dm.addEventListener("click", function () { post(aurl(U.dismiss, a.alert_id)).then(refresh); });
+      td.appendChild(rq); td.appendChild(dm); tr.appendChild(td); tb.appendChild(tr);
+    });
+  }
+
+  function renderEvents(list) {
+    var tb = $("events"); if (!list.length) return; tb.innerHTML = "";
+    list.forEach(function (e) {
+      var tr = el("tr");
+      [e.time, e.computer_id, e.type.replace(/_/g, " "), e.detail || ""].forEach(function (t) { tr.appendChild(el("td", null, t)); });
+      tb.appendChild(tr);
+    });
+  }
+
+  function refresh() {
+    if (busy) return; busy = true;
+    fetch(U.overview).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (d) {
+        pcs = d.computers;
+        if (!sel && pcs.length) sel = (pcs.filter(function (c) { return c.status !== "Not enrolled"; })[0] || pcs[0]).computer_id;
+        renderCards(); renderSel(); renderAlerts(d.alerts); renderEvents(d.events); loadHistory();
+        $("f-time").textContent = new Date().toLocaleTimeString(); setStatus("Live", "success");
+      })
+      .catch(function (e) { setStatus("Update failed (" + e.message + ") - retrying", "danger"); })
+      .then(function () { busy = false; });
+  }
+
+  $("tok-btn").addEventListener("click", function () {
+    if (!sel || !confirm("Generate a new token for " + sel + "? Any older token for this PC stops working.")) return;
+    post(url(U.token, sel)).then(function (d) {
+      var box = $("tok-box"); box.style.display = "";
+      box.textContent = d.token ?
+        "Shown only once. On " + sel + " run:\n\nset SMARTLAB_SERVER_URL=" + location.origin + "   (use this laptop's LAN IP instead of localhost)\n" +
+        "set SMARTLAB_DEVICE_ID=" + sel + "\nset SMARTLAB_API_TOKEN=" + d.token + "\npython monitor_agent.py" : (d.error || "Failed");
+      refresh();
+    });
+  });
+  $("f-pause").addEventListener("click", function () {
+    paused = !paused; this.textContent = paused ? "Resume" : "Pause"; setStatus(paused ? "Paused" : "Live", paused ? "neutral" : "success");
+    if (!paused) refresh();
+  });
+  document.addEventListener("smartlab:alert", function () { if (!paused) refresh(); });   // pushed by the server
+  setInterval(function () { if (!paused) refresh(); }, REFRESH);
+  refresh();
+})();
+</script>
+{% endblock %}

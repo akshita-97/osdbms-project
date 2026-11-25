@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Execution Flow{% endblock %}
+{% block content %}
+  <h1 class="page-title">Execution Flow</h1>
+  <p class="page-subtitle">Enter the resources each pending task needs. The result is calculated from your numbers.</p>
+
+  <div id="flow-msg" class="panel" hidden></div>
+  <p><button type="button" id="btn-result">Result</button></p>
+  <div id="state">{% include "_banker_state.html" %}</div>
+
+  <div class="panel">
+    <h2>Maximum Matrix (Pending Tasks)</h2>
+    <form id="form-tasks">
+      <div class="table-wrap"><table>
+        <thead><tr><th>Task</th><th>Computer</th><th>Issue</th><th>Status</th>{% for r in s.resources %}<th>{{ r.resource_name }}</th>{% endfor %}</tr></thead>
+        <tbody id="task-rows">{% include "_banker_tasks.html" %}</tbody>
+      </table></div>
+      <p class="muted">Resources each task needs at most. Changes are saved and the result is recalculated automatically.</p>
+      <p><button type="submit" class="secondary">Recalculate</button></p>
+    </form>
+  </div>
+
+  <div class="panel">
+    <h2>Request Resources</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Task</th><th>Computer</th><th>Status</th>{% for r in s.resources %}<th>{{ r.resource_name }}</th>{% endfor %}<th>Action</th></tr></thead>
+      <tbody id="alloc-rows">{% include "_banker_alloc.html" %}</tbody>
+    </table></div>
+    <p class="muted">Rows follow the Result safe sequence. Only the first task can be started. Its quantities must exactly match the Need Matrix (for every task, whatever it already holds); otherwise an error is shown. Complete appears only after Start, and releases its resources and moves the next task to the front.</p>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var U = { partial: "{{ url_for('banker.partial') }}", tasks: "{{ url_for('banker.tasks') }}", calc: "{{ url_for('banker.calculate') }}",
+            alloc: "{{ url_for('banker.allocated') }}",
+            req: "{{ url_for('banker.request_resources') }}", start: "{{ url_for('banker.start') }}", complete: "{{ url_for('banker.complete') }}" };
+  var $ = function (id) { return document.getElementById(id); };
+  var state = $("state"), box = $("flow-msg"), timers = {}, showResult = false;
+  var tables = [{ body: $("task-rows"), rows: U.tasks, save: U.calc, what: "requirement" },
+                { body: $("alloc-rows"), rows: U.alloc, what: "request" }];
+
+  function say(ok, text) { box.textContent = text; box.setAttribute("data-tone", ok ? "success" : "danger"); box.hidden = false; }
+  function refreshState() { return fetch(U.partial + (showResult ? "?result=1" : "")).then(function (r) { return r.text(); }).then(function (h) { state.innerHTML = h; }).catch(function () {}); }
+
+  // Merge instead of replace: new tasks appear, finished ones go, status and numbers changed elsewhere are picked up,
+  // and a number you are typing (focused or not saved yet) is never overwritten.
+  function mergeRows(body, html, force) {
+    var tmp = document.createElement("tbody"), seen = {}; tmp.innerHTML = html;
+    tmp.querySelectorAll("tr[data-task]").forEach(function (nr) {
+      var id = nr.dataset.task, cur = body.querySelector('tr[data-task="' + id + '"]'); seen[id] = true;
+      if (!cur) { body.appendChild(nr); return; }
+      var cs = cur.querySelectorAll(".st"), ns = nr.querySelectorAll(".st");
+      for (var k = 0; k < cs.length; k++) { if (!cs[k].querySelector("input")) cs[k].innerHTML = ns[k].innerHTML; }
+      nr.querySelectorAll("input").forEach(function (ni) { var ci = cur.querySelector('input[name="' + ni.name + '"]'); if (ci) ci.disabled = ni.disabled; });
+      nr.querySelectorAll("input").forEach(function (ni) {
+        var ci = cur.querySelector('input[name="' + ni.name + '"]');
+        if (ci) { ci.max = ni.max; if (force || (document.activeElement !== ci && !ci.dataset.dirty)) ci.value = ni.value; }
+      });
+      body.appendChild(cur); // keep the live rows in the server's safe-sequence order
+    });
+    body.querySelectorAll("tr[data-task]").forEach(function (r) { if (!seen[r.dataset.task]) r.remove(); });
+    body.querySelectorAll(".empty-row").forEach(function (r) { r.remove(); });
+    var empty = tmp.querySelector(".empty-row"); if (empty) body.appendChild(empty);
+  }
+  function refreshTables(force) {
+    return Promise.all(tables.map(function (t) {
+      return fetch(t.rows).then(function (r) { return r.text(); }).then(function (h) { mergeRows(t.body, h, force); }).catch(function () {});
+    }));
+  }
+
+  // A change of any number is saved at once; the result and both tables are then recalculated from the database.
+  function saveRow(t, row) {
+    var id = row.dataset.task, version = row.dataset.v, f = new FormData();
+    row.querySelectorAll("input").forEach(function (i) { f.append(i.name, i.value); });
+    return fetch(t.save, { method: "POST", body: f }).then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (row.dataset.v === version) row.querySelectorAll("input").forEach(function (i) { delete i.dataset.dirty; });
+        say(j.ok, j.ok ? id + " " + t.what + " updated. " + j.message.replace(/^Saved\.|^Allocation saved\./, "").trim() : j.message);
+        return Promise.all([refreshState(), refreshTables(!j.ok)]);
+      })
+      .catch(function () { say(false, "Could not reach the server."); });
+  }
+  tables.forEach(function (t) {
+    if (!t.save) return;
+    t.body.addEventListener("input", function (e) {
+      var inp = e.target, row = inp.closest("tr[data-task]"); if (!row) return;
+      inp.dataset.dirty = "1"; row.dataset.v = String((+row.dataset.v || 0) + 1);
+      var key = t.what + row.dataset.task;
+      clearTimeout(timers[key]);
+      timers[key] = setTimeout(function () { saveRow(t, row); }, 600);
+    });
+  });
+
+  // Request / Start / Complete are explicit actions; nothing is allocated, started or completed automatically.
+  tables[1].body.addEventListener("click", function (e) {
+    var b = e.target.closest("button.act"), row = b && b.closest("tr[data-task]"); if (!row) return;
+    var f = new FormData(); f.append("task_id", row.dataset.task);
+    if (b.dataset.act === "start") row.querySelectorAll("input").forEach(function (i) { f.append(i.name, i.value); });
+    b.disabled = true;
+    fetch(U[b.dataset.act === "request" ? "req" : b.dataset.act], { method: "POST", body: f }).then(function (r) { return r.json(); })
+      .then(function (j) { say(j.ok, j.message); row.querySelectorAll("input").forEach(function (i) { delete i.dataset.dirty; });
+                           return Promise.all([refreshState(), refreshTables(true)]); })
+      .catch(function () { say(false, "Could not reach the server."); b.disabled = false; });
+  });
+  tables[1].body.addEventListener("input", function (e) { e.target.dataset.dirty = "1"; });
+
+  $("btn-result").addEventListener("click", function () { showResult = true; refreshState(); });   // Result is shown only on click
+
+  $("form-tasks").addEventListener("submit", function (e) {          // "Recalculate" saves every required-resource row
+    e.preventDefault();
+    fetch(U.calc, { method: "POST", body: new FormData(this) }).then(function (r) { return r.json(); })
+      .then(function (j) {
+        say(j.ok, j.message);
+        if (j.ok) tables[0].body.querySelectorAll("input").forEach(function (i) { delete i.dataset.dirty; });
+        return Promise.all([refreshState(), refreshTables(!j.ok)]);
+      })
+      .catch(function () { say(false, "Could not reach the server."); });
+  });
+  setInterval(function () { if (!document.hidden) { refreshState(); refreshTables(false); } }, 5000);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Database problem{% endblock %}
+{% block content %}
+  <h1 class="page-title">Can't reach the database</h1>
+  <p class="page-subtitle">SmartLab needs MySQL to show this page. Nothing is wrong with your data &mdash; the app just couldn't talk to the database.</p>
+
+  <div class="panel">
+    <h2>What MySQL said</h2>
+    <p><code>{{ error }}</code></p>
+  </div>
+
+  <div class="panel">
+    <h2>How to fix it</h2>
+    <ol>
+      <li><strong>Is MySQL running?</strong> On Windows open the <em>Services</em> app, find <em>MySQL80</em> and press Start.</li>
+      <li><strong>Is your password right?</strong> Open the <code>.env</code> file in the project folder and check <code>DB_PASSWORD</code> (server: <code>{{ db_host }}:{{ db_port }}</code>).</li>
+      <li><strong>Was the database created?</strong> If the message says <em>Unknown database '{{ db_name }}'</em>, run <code>python setup_db.py</code> in the project folder, then refresh this page.</li>
+    </ol>
+  </div>
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Labs & Computers{% endblock %}
+{% block content %}
+  <h1 class="page-title">Labs &amp; Computer Management</h1>
+  <p class="page-subtitle">Manage physical labs and the computers within them.</p>
+
+  <div class="tabs">
+    <a href="{{ url_for('computers.list_labs') }}" class="{{ 'active' if view == 'labs' }}">Labs</a>
+    <a href="{{ url_for('computers.list_computers') }}" class="{{ 'active' if view == 'computers' }}">Computers</a>
+  </div>
+
+  {% if view == 'labs' %}
+    <div class="panel">
+      <h2>Add Lab</h2>
+      <form class="form-grid" method="POST" action="{{ url_for('computers.add_lab') }}">
+        <div><label>Lab ID</label><input name="lab_id" placeholder="LAB-04" required></div>
+        <div><label>Lab Name</label><input name="lab_name" required></div>
+        <div><label>Location</label><input name="location" required></div>
+        <div><label>Capacity</label><input type="number" name="capacity" min="0" required></div>
+        <div><label>Status</label>
+          <select name="status"><option>Active</option><option>Inactive</option></select>
+        </div>
+        <div style="align-self:end;"><button type="submit">Add Lab</button></div>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>All Labs</h2>
+      <div class="table-wrap">
+      <table>
+        <tr><th>ID</th><th>Name</th><th>Location</th><th>Capacity</th><th>Computers</th><th>Status</th><th>Actions</th></tr>
+        {% for lab in labs %}
+        <!-- Edit form has no children of its own; inputs below reference it
+             via the HTML5 form="..." attribute so a <form> never has to
+             span multiple <td> cells (which is invalid inside a <tr>). -->
+        <form method="POST" id="editlab-{{ lab.lab_id }}" action="{{ url_for('computers.edit_lab', lab_id=lab.lab_id) }}"></form>
+        <tr>
+          <td>{{ lab.lab_id }}</td>
+          <td><input form="editlab-{{ lab.lab_id }}" name="lab_name" value="{{ lab.lab_name }}"></td>
+          <td><input form="editlab-{{ lab.lab_id }}" name="location" value="{{ lab.location }}"></td>
+          <td><input form="editlab-{{ lab.lab_id }}" type="number" name="capacity" value="{{ lab.capacity }}" style="width:70px;"></td>
+          <td>{{ lab.computer_count }}</td>
+          <td>
+            <select form="editlab-{{ lab.lab_id }}" name="status">
+              <option {{ 'selected' if lab.status=='Active' }}>Active</option>
+              <option {{ 'selected' if lab.status=='Inactive' }}>Inactive</option>
+            </select>
+          </td>
+          <td style="white-space:nowrap;">
+            <button form="editlab-{{ lab.lab_id }}" type="submit" class="btn-sm">Save</button>
+            <form method="POST" action="{{ url_for('computers.delete_lab', lab_id=lab.lab_id) }}"
+                  data-confirm="Delete lab {{ lab.lab_id }}? This only works if it has no computers." style="display:inline;">
+              <button type="submit" class="btn-sm danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="muted">No labs yet.</td></tr>
+        {% endfor %}
+      </table>
+      </div>
+    </div>
+
+  {% else %}
+    <div class="panel">
+      <h2>Add Computer</h2>
+      <form class="form-grid" method="POST" action="{{ url_for('computers.add_computer') }}">
+        <div><label>Computer ID</label><input name="computer_id" placeholder="PC-19" required></div>
+        <div><label>Lab</label>
+          <select name="lab_id" required>
+            {% for lab in labs %}<option value="{{ lab.lab_id }}">{{ lab.lab_id }} - {{ lab.lab_name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div><label>IP Address</label><input name="ip_address" placeholder="192.168.1.120"></div>
+        <div><label>Processor</label><input name="processor"></div>
+        <div><label>RAM (GB)</label><input type="number" name="ram_gb" min="0"></div>
+        <div><label>Storage (GB)</label><input type="number" name="storage_gb" min="0"></div>
+        <div><label>Operating System</label><input name="os_name"></div>
+        <div><label>Status</label>
+          <select name="status">
+            <option>Available</option><option>In Use</option><option>Maintenance Required</option>
+            <option>Under Maintenance</option><option>Offline</option>
+          </select>
+        </div>
+        <div style="align-self:end;"><button type="submit">Add Computer</button></div>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>Filter by Lab</h2>
+      <form class="inline" method="GET">
+        <select name="lab_id" onchange="this.form.submit()">
+          <option value="">-- All Labs --</option>
+          {% for lab in labs %}
+          <option value="{{ lab.lab_id }}" {{ 'selected' if lab_filter == lab.lab_id }}>{{ lab.lab_id }} - {{ lab.lab_name }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>Computers</h2>
+      <div class="table-wrap">
+      <table>
+        <tr><th>ID</th><th>Lab</th><th>IP</th><th>Processor</th><th>RAM</th><th>Storage</th><th>OS</th><th>Status</th><th>Actions</th></tr>
+        {% for c in computers %}
+        <tr>
+          <td>{{ c.computer_id }}</td>
+          <td>{{ c.lab_id }}</td>
+          <td>{{ c.ip_address or '-' }}</td>
+          <td>{{ c.processor or '-' }}</td>
+          <td>{{ c.ram_gb or '-' }} GB</td>
+          <td>{{ c.storage_gb or '-' }} GB</td>
+          <td>{{ c.os_name or '-' }}</td>
+          <td>
+            <form method="POST" action="{{ url_for('computers.change_status', computer_id=c.computer_id) }}" style="display:flex;gap:4px;">
+              <select name="status" onchange="this.form.submit()">
+                {% for s in ['Available','In Use','Maintenance Required','Under Maintenance','Offline'] %}
+                <option {{ 'selected' if c.status==s }}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </form>
+          </td>
+          <td>
+            <form method="POST" action="{{ url_for('computers.delete_computer', computer_id=c.computer_id) }}"
+                  data-confirm="Delete computer {{ c.computer_id }}?" style="display:inline;">
+              <button type="submit" class="btn-sm danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="10" class="muted">No computers found.</td></tr>
+        {% endfor %}
+      </table>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+  <div class="dash-hero">
+    <div>
+      <h1>Welcome{% if session.get('display_name') %}, {{ session.get('display_name') }}{% endif %}</h1>
+      <p>SmartLab keeps your computer labs running: report faults, manage maintenance tasks and track resources in one place.</p>
+    </div>
+    <div class="dash-hero-actions">
+      <a class="dash-btn" href="{{ url_for('maintenance.index') }}">Report a Fault</a>
+    </div>
+  </div>
+
+  <div class="dash-grid">
+    <a class="dash-card" data-accent="blue" href="{{ url_for('computers.list_labs') }}">
+      <div class="dash-icon">&#127979;</div>
+      <div class="dash-value">{{ stats.total_labs }}</div>
+      <div class="dash-label">Total Labs</div>
+      <div class="dash-link">View labs &rarr;</div>
+    </a>
+
+    <a class="dash-card" data-accent="teal" href="{{ url_for('computers.list_labs') }}">
+      <div class="dash-icon">&#128187;</div>
+      <div class="dash-value">{{ stats.total_computers }}</div>
+      <div class="dash-label">Total Computers</div>
+      <div class="dash-link">View computers &rarr;</div>
+    </a>
+
+    <a class="dash-card" data-accent="amber" href="{{ url_for('banker.index') }}">
+      <div class="dash-icon">&#128736;</div>
+      <div class="dash-value">{{ stats.pending_tasks }}</div>
+      <div class="dash-label">Pending Maintenance Tasks</div>
+      <div class="dash-link">Open execution flow &rarr;</div>
+    </a>
+
+    <a class="dash-card" data-accent="red" href="{{ url_for('maintenance.index') }}">
+      <div class="dash-icon">&#9888;</div>
+      <div class="dash-value">{{ stats.critical_faults }}</div>
+      <div class="dash-label">Critical Faults</div>
+      <div class="dash-link">Review requests &rarr;</div>
+    </a>
+  </div>
+{% endblock %}

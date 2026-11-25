@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Task {{ task.task_id }}{% endblock %}
+{% block content %}
+  <h1 class="page-title">Maintenance Execution -- {{ task.task_id }}</h1>
+  <p class="page-subtitle">Computer {{ task.computer_id }} ({{ task.lab_id }}) &middot; Current status:
+    <span class="badge" data-tone="{{ task.status|tone }}">{{ task.status }}</span>
+  </p>
+
+  <div class="two-col">
+    <div class="panel">
+      <h2>Task Details</h2>
+      <table>
+        <tr><td class="muted">Arrival Time</td><td>{{ task.arrival_time }} min</td></tr>
+        <tr><td class="muted">Service Time</td><td>{{ task.service_time }} min</td></tr>
+        <tr><td class="muted">Priority</td><td>{{ task.priority }}</td></tr>
+        <tr><td class="muted">Assigned Technician</td><td>{{ task.technician_name or 'Unassigned' }}</td></tr>
+      </table>
+
+      <h3>Assign Technician</h3>
+      <form class="inline" method="POST" action="{{ url_for('maintenance.assign_technician', task_id=task.task_id) }}">
+        <select name="technician_id" required>
+          {% for t in technicians %}<option value="{{ t.technician_id }}">{{ t.name }} ({{ t.specialization }})</option>{% endfor %}
+        </select>
+        <button type="submit">Assign</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>Resource Requirements</h2>
+      <div class="table-wrap">
+      <table>
+        <tr><th>Resource</th><th>Max Required</th><th>Currently Allocated</th><th>Available</th></tr>
+        {% for r in requirements %}
+        <tr>
+          <td>{{ r.resource_name }}</td>
+          <td>{{ r.maximum_required }}</td>
+          <td>{{ r.currently_allocated }}</td>
+          <td>{{ r.available_quantity }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="muted">No resource requirements defined yet.</td></tr>
+        {% endfor %}
+      </table>
+      </div>
+
+      <h3>Add / Update Requirement</h3>
+      <form class="inline" method="POST" action="{{ url_for('resources.add_requirement', task_id=task.task_id) }}">
+        <select name="resource_id" required>
+          {% for r in resources %}<option value="{{ r.resource_id }}">{{ r.resource_name }} (avail {{ r.available_quantity }})</option>{% endfor %}
+        </select>
+        <input type="number" name="maximum_required" min="1" placeholder="Max required" style="width:120px;" required>
+        <button type="submit">Save</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Execution Actions</h2>
+    <p class="muted">Follow the workflow in order: Allocate Resources &rarr; Start Maintenance &rarr; Complete Maintenance &rarr; Release Resources.</p>
+
+    <div class="metric-row">
+      <form method="POST" action="{{ url_for('resources.allocate', task_id=task.task_id) }}">
+        <button type="submit">1. Allocate Resources</button>
+      </form>
+
+      <form method="POST" action="{{ url_for('resources.start_task', task_id=task.task_id) }}">
+        <button type="submit" class="secondary">2. Start Maintenance</button>
+      </form>
+
+      <form method="POST" action="{{ url_for('resources.complete_task', task_id=task.task_id) }}">
+        <input type="text" name="remarks" placeholder="Completion remarks" style="width:220px;display:inline-block;">
+        <button type="submit" class="success">3. Complete Maintenance</button>
+      </form>
+
+      <form method="POST" action="{{ url_for('resources.release', task_id=task.task_id) }}"
+            data-confirm="Release all allocated resources for this task?">
+        <button type="submit" class="danger">4. Release Resources</button>
+      </form>
+    </div>
+  </div>
+{% endblock %}
